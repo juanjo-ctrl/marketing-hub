@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getSheet, appendRow, updateRow, clearRow, clientToRow, rowToClient, taskToRow, rowToTask, userToRow, rowToUser } from "./sheets";
 
 // ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
 const C = {
@@ -26,32 +27,20 @@ const RECURRENCE_LABELS = {
 };
 
 const NAV_ITEMS = [
-  { id: "tablero",      label: "Tablero",      icon: "▦" },
-  { id: "clientes",     label: "Clientes",     icon: "◉" },
-  { id: "tareas", label: "Tareas", icon: "✓" },
-  { id: "equipo",       label: "Equipo",       icon: "⊙", adminOnly: true },
+  { id: "tablero",  label: "Tablero",  icon: "▦" },
+  { id: "clientes", label: "Clientes", icon: "◉" },
+  { id: "tareas",   label: "Tareas",   icon: "✓" },
+  { id: "equipo",   label: "Equipo",   icon: "⊙", adminOnly: true },
 ];
 
-// ── INITIAL DATA ──────────────────────────────────────────────────────────────
-const INITIAL_USERS = [
+const FALLBACK_USERS = [
   { id: 1, username: "juanjo",  password: "juanjo123",  name: "Juanjo",  role: "admin"  },
   { id: 2, username: "dolores", password: "dolores123", name: "Dolores", role: "member" },
   { id: 3, username: "nadia",   password: "nadia123",   name: "Nadia",   role: "member" },
 ];
 
-const INITIAL_CLIENTS = [
-  { id: 1, name: "Grupo Nexo", sector: "Consultoría", status: "activo", since: "2024-09", clientType: "A", management: "LinkedIn mensual + informe trimestral + 2 posts semanales", notes: "", driveUrl: "" },
-  { id: 2, name: "InnovaLab",  sector: "Tecnología",  status: "activo", since: "2025-01", clientType: "B", management: "Podcast mensual + LinkedIn quincenal", notes: "", driveUrl: "" },
-];
-
-const INITIAL_TASKS = [
-  { id: 1, clientId: 1, title: "2 posts LinkedIn semana",    assigned: "Dolores", taskStatus: "en_tramite", recurrent: true,  recurrence: "lunes",   dueDate: "2026-05-12", notes: "" },
-  { id: 2, clientId: 1, title: "Informe mensual resultados", assigned: "Juanjo",  taskStatus: "sin_hacer",  recurrent: true,  recurrence: "mensual", dueDate: "2026-05-30", notes: "" },
-  { id: 3, clientId: 2, title: "Guión podcast mayo",         assigned: "Nadia",   taskStatus: "hecho",      recurrent: false, recurrence: "",        dueDate: "2026-05-10", notes: "Enviado y aprobado" },
-];
-
 function today() { return new Date().toISOString().split("T")[0]; }
-let _id = 100; function uid() { return _id++; }
+let _id = 200; function uid() { return _id++; }
 
 // ── HOOKS ─────────────────────────────────────────────────────────────────────
 function useIsMobile() {
@@ -114,6 +103,15 @@ function Field({ label, children }) {
     <div style={{ marginBottom: 16 }}>
       <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: C.textMid, marginBottom: 6, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60 }}>
+      <div style={{ width: 32, height: 32, border: `3px solid ${C.border}`, borderTop: `3px solid ${C.black}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -271,33 +269,129 @@ function ClientForm({ initial, onSave, onClose }) {
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function MarketingHub() {
   const isMobile = useIsMobile();
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState(FALLBACK_USERS);
   const [currentUser, setCurrentUser] = useState(null);
-  const [clients, setClients] = useState(INITIAL_CLIENTS);
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [clients, setClients] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState("tablero");
   const [filterClient, setFilterClient] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterPerson, setFilterPerson] = useState("todos");
   const [modal, setModal] = useState(null);
 
+  // ── LOAD FROM SHEETS ──────────────────────────────────────────────────────
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        const [uRows, cRows, tRows] = await Promise.all([
+          getSheet("Usuarios"),
+          getSheet("Clientes"),
+          getSheet("Tareas"),
+        ]);
+        if (uRows.length > 1) setUsers(uRows.slice(1).map(rowToUser));
+        if (cRows.length > 1) setClients(cRows.slice(1).map(rowToClient));
+        if (tRows.length > 1) setTasks(tRows.slice(1).map(rowToTask));
+      } catch (e) {
+        console.error("Error cargando datos:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 20 }}>Marketing Hub</div>
+        <Spinner />
+        <div style={{ fontSize: 13, color: C.textLight, marginTop: 16 }}>Cargando datos...</div>
+      </div>
+    </div>
+  );
+
   if (!currentUser) return <LoginScreen users={users} onLogin={setCurrentUser} />;
 
   const isAdmin = currentUser.role === "admin";
   const closeModal = () => setModal(null);
 
-  const addUser    = f => { setUsers(u => [...u, { ...f, id: uid() }]); closeModal(); };
-  const updateUser = (id, f) => { setUsers(u => u.map(x => x.id === id ? { ...x, ...f } : x)); closeModal(); };
-  const deleteUser = id => setUsers(u => u.filter(x => x.id !== id));
-  const addTask    = f => { setTasks(t => [...t, { ...f, assigned: isAdmin ? f.assigned : currentUser.name, id: uid() }]); closeModal(); };
-  const updateTask = (id, f) => { setTasks(t => t.map(tk => tk.id === id ? { ...tk, ...f } : tk)); closeModal(); };
-  const setTaskStatus = (id, s) => setTasks(t => t.map(tk => tk.id === id ? { ...tk, taskStatus: s } : tk));
-  const deleteTask = id => setTasks(t => t.filter(tk => tk.id !== id));
-  const addClient    = f => { setClients(c => [...c, { ...f, id: uid() }]); closeModal(); };
-  const updateClient = (id, f) => { setClients(c => c.map(x => x.id === id ? { ...x, ...f } : x)); closeModal(); };
-  const deleteClient = id => setClients(c => c.filter(x => x.id !== id));
-  const clientName = id => clients.find(c => c.id === id)?.name || "—";
+  // ── USERS CRUD ────────────────────────────────────────────────────────────
+  const addUser = async (form) => {
+    const newUser = { ...form, id: uid() };
+    await appendRow("Usuarios", userToRow(newUser));
+    setUsers(u => [...u, newUser]);
+    closeModal();
+  };
+  const updateUser = async (id, form) => {
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return;
+    const updated = { ...users[idx], ...form };
+    await updateRow(`Usuarios!A${idx + 2}:E${idx + 2}`, userToRow(updated));
+    setUsers(u => u.map(x => x.id === id ? updated : x));
+    closeModal();
+  };
+  const deleteUser = async (id) => {
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return;
+    await clearRow(`Usuarios!A${idx + 2}:E${idx + 2}`);
+    setUsers(u => u.filter(x => x.id !== id));
+  };
 
+  // ── TASKS CRUD ────────────────────────────────────────────────────────────
+  const addTask = async (form) => {
+    const newTask = { ...form, assigned: isAdmin ? form.assigned : currentUser.name, id: uid() };
+    await appendRow("Tareas", taskToRow(newTask));
+    setTasks(t => [...t, newTask]);
+    closeModal();
+  };
+  const updateTask = async (id, form) => {
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    const updated = { ...tasks[idx], ...form };
+    await updateRow(`Tareas!A${idx + 2}:I${idx + 2}`, taskToRow(updated));
+    setTasks(t => t.map(tk => tk.id === id ? updated : tk));
+    closeModal();
+  };
+  const setTaskStatus = async (id, status) => {
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    const updated = { ...tasks[idx], taskStatus: status };
+    await updateRow(`Tareas!A${idx + 2}:I${idx + 2}`, taskToRow(updated));
+    setTasks(t => t.map(tk => tk.id === id ? updated : tk));
+  };
+  const deleteTask = async (id) => {
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    await clearRow(`Tareas!A${idx + 2}:I${idx + 2}`);
+    setTasks(t => t.filter(tk => tk.id !== id));
+  };
+
+  // ── CLIENTS CRUD ──────────────────────────────────────────────────────────
+  const addClient = async (form) => {
+    const newClient = { ...form, id: uid() };
+    await appendRow("Clientes", clientToRow(newClient));
+    setClients(c => [...c, newClient]);
+    closeModal();
+  };
+  const updateClient = async (id, form) => {
+    const idx = clients.findIndex(c => c.id === id);
+    if (idx === -1) return;
+    const updated = { ...clients[idx], ...form };
+    await updateRow(`Clientes!A${idx + 2}:I${idx + 2}`, clientToRow(updated));
+    setClients(c => c.map(x => x.id === id ? updated : x));
+    closeModal();
+  };
+  const deleteClient = async (id) => {
+    const idx = clients.findIndex(c => c.id === id);
+    if (idx === -1) return;
+    await clearRow(`Clientes!A${idx + 2}:I${idx + 2}`);
+    setClients(c => c.filter(x => x.id !== id));
+  };
+
+  const clientName = id => clients.find(c => c.id === id)?.name || "—";
   const visibleTasks = isAdmin ? tasks : tasks.filter(t => t.assigned === currentUser.name);
   const filteredTasks = visibleTasks.filter(t => {
     if (filterClient !== "todos" && t.clientId !== +filterClient) return false;
@@ -310,10 +404,9 @@ export default function MarketingHub() {
     en_tramite: visibleTasks.filter(t => t.taskStatus === "en_tramite").length,
     hecho:      visibleTasks.filter(t => t.taskStatus === "hecho").length,
   };
-
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
 
-  // ── TASK CARD ───────────────────────────────────────────────────────────
+  // ── TASK CARD ─────────────────────────────────────────────────────────────
   const TaskCard = ({ task }) => {
     const isDone = task.taskStatus === "hecho";
     const isOverdue = !isDone && task.dueDate < today();
@@ -346,7 +439,7 @@ export default function MarketingHub() {
     );
   };
 
-  // ── VIEWS ───────────────────────────────────────────────────────────────
+  // ── TABLERO ───────────────────────────────────────────────────────────────
   const TablerView = () => (
     <div>
       <div style={{ marginBottom: 20, padding: "12px 16px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 10 }}>
@@ -377,9 +470,11 @@ export default function MarketingHub() {
     </div>
   );
 
+  // ── CLIENTES ──────────────────────────────────────────────────────────────
   const ClientsView = () => (
     <div>
       {isAdmin && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}><button onClick={() => setModal("newClient")} style={btnP}>+ Nuevo cliente</button></div>}
+      {clients.length === 0 && <div style={{ textAlign: "center", color: C.textLight, padding: 48 }}>No hay clientes todavía.</div>}
       {clients.map(c => {
         const cs = CLIENT_STATUS[c.status] || CLIENT_STATUS.activo;
         const ct = visibleTasks.filter(t => t.clientId === c.id);
@@ -432,7 +527,8 @@ export default function MarketingHub() {
     </div>
   );
 
-  const RecurrencesView = () => {
+  // ── TAREAS ────────────────────────────────────────────────────────────────
+  const TareasView = () => {
     const recurrents = visibleTasks.filter(t => t.recurrent);
     const oneOff = visibleTasks.filter(t => !t.recurrent);
     const byRec = {};
@@ -442,13 +538,9 @@ export default function MarketingHub() {
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
           <button onClick={() => setModal("newTask")} style={{ ...btnP, padding: isMobile ? "10px 16px" : "9px 18px" }}>+ Nueva tarea</button>
         </div>
-        {/* Recurrentes */}
         {Object.keys(byRec).length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-              <span>🔁 Tareas recurrentes</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: "none", letterSpacing: 0 }}>· se repiten periódicamente</span>
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 14 }}>🔁 Tareas recurrentes</div>
             {Object.entries(byRec).map(([rec, tks]) => (
               <div key={rec} style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.textMid, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8, paddingLeft: 4 }}>{RECURRENCE_LABELS[rec]}</div>
@@ -457,13 +549,9 @@ export default function MarketingHub() {
             ))}
           </div>
         )}
-        {/* No recurrentes */}
         {oneOff.length > 0 && (
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-              <span>○ Tareas puntuales</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: "none", letterSpacing: 0 }}>· sin repetición</span>
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 14 }}>○ Tareas puntuales</div>
             {oneOff.map(t => <TaskCard key={t.id} task={t} />)}
           </div>
         )}
@@ -472,6 +560,7 @@ export default function MarketingHub() {
     );
   };
 
+  // ── EQUIPO ────────────────────────────────────────────────────────────────
   const EquipoView = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
@@ -508,47 +597,40 @@ export default function MarketingHub() {
     </div>
   );
 
-  // ── MODALS ──────────────────────────────────────────────────────────────
+  // ── MODALS ────────────────────────────────────────────────────────────────
   const renderModal = () => {
     if (!modal) return null;
     const wrap = (title, children) => <Modal title={title} onClose={closeModal}>{children}</Modal>;
-    if (modal === "newTask")   return wrap("Nueva tarea",    <TaskForm   clients={clients} users={users} currentUser={currentUser} onSave={addTask}   onClose={closeModal} />);
-    if (modal === "newClient") return wrap("Nuevo cliente",  <ClientForm onSave={addClient}  onClose={closeModal} />);
-    if (modal === "newUser")   return wrap("Nuevo usuario",  <UserForm   onSave={addUser}    onClose={closeModal} />);
-    if (modal.startsWith("editTask:"))   { const t = tasks.find(x => x.id === +modal.split(":")[1]);   return t   ? wrap("Editar tarea",    <TaskForm   clients={clients} users={users} initial={t}   currentUser={currentUser} onSave={f => updateTask(t.id, f)}   onClose={closeModal} />) : null; }
-    if (modal.startsWith("editClient:")) { const c = clients.find(x => x.id === +modal.split(":")[1]); return c   ? wrap("Editar cliente",  <ClientForm initial={c}   onSave={f => updateClient(c.id, f)}   onClose={closeModal} />) : null; }
-    if (modal.startsWith("editUser:"))   { const u = users.find(x => x.id === +modal.split(":")[1]);   return u   ? wrap("Editar usuario",  <UserForm   initial={u}   onSave={f => updateUser(u.id, f)}     onClose={closeModal} />) : null; }
+    if (modal === "newTask")   return wrap("Nueva tarea",   <TaskForm clients={clients} users={users} currentUser={currentUser} onSave={addTask} onClose={closeModal} />);
+    if (modal === "newClient") return wrap("Nuevo cliente", <ClientForm onSave={addClient} onClose={closeModal} />);
+    if (modal === "newUser")   return wrap("Nuevo usuario", <UserForm onSave={addUser} onClose={closeModal} />);
+    if (modal.startsWith("editTask:"))   { const t = tasks.find(x => x.id === +modal.split(":")[1]);   return t ? wrap("Editar tarea",   <TaskForm clients={clients} users={users} initial={t} currentUser={currentUser} onSave={f => updateTask(t.id, f)} onClose={closeModal} />) : null; }
+    if (modal.startsWith("editClient:")) { const c = clients.find(x => x.id === +modal.split(":")[1]); return c ? wrap("Editar cliente", <ClientForm initial={c} onSave={f => updateClient(c.id, f)} onClose={closeModal} />) : null; }
+    if (modal.startsWith("editUser:"))   { const u = users.find(x => x.id === +modal.split(":")[1]);   return u ? wrap("Editar usuario", <UserForm initial={u} onSave={f => updateUser(u.id, f)} onClose={closeModal} />) : null; }
     return null;
   };
 
   const viewContent = () => {
-    if (view === "tablero")      return <TablerView />;
-    if (view === "clientes")     return <ClientsView />;
-    if (view === "tareas") return <RecurrencesView />;
+    if (view === "tablero")  return <TablerView />;
+    if (view === "clientes") return <ClientsView />;
+    if (view === "tareas")   return <TareasView />;
     if (view === "equipo" && isAdmin) return <EquipoView />;
     return null;
   };
 
-  // ── MOBILE LAYOUT ───────────────────────────────────────────────────────
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) return (
     <div style={{ minHeight: "100vh", background: C.surface, fontFamily: "'DM Sans', sans-serif", paddingBottom: 80 }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <style>{`* { box-sizing: border-box; } select option { background: #fff; color: #111; } button:focus { outline: none; }`}</style>
-      {/* Mobile header */}
       <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em" }}>
-          {navItems.find(n => n.id === view)?.label || "Marketing Hub"}
-        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em" }}>{navItems.find(n => n.id === view)?.label || "Marketing Hub"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Avatar name={currentUser.name} size={30} />
           <button onClick={() => setCurrentUser(null)} style={{ background: "none", border: "none", color: C.textLight, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>Salir</button>
         </div>
       </div>
-      {/* Content */}
-      <div style={{ padding: "16px 16px 0" }}>
-        {viewContent()}
-      </div>
-      {/* Bottom nav */}
+      <div style={{ padding: "16px 16px 0" }}>{viewContent()}</div>
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 100 }}>
         {navItems.map(n => (
           <button key={n.id} onClick={() => setView(n.id)} style={{ flex: 1, padding: "10px 4px 14px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
@@ -562,12 +644,11 @@ export default function MarketingHub() {
     </div>
   );
 
-  // ── DESKTOP LAYOUT ──────────────────────────────────────────────────────
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: C.surface, fontFamily: "'DM Sans', sans-serif", display: "flex" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <style>{`* { box-sizing: border-box; } select option { background: #fff; color: #111; } button:focus { outline: none; }`}</style>
-      {/* Sidebar */}
       <div style={{ width: 220, background: C.bg, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0, left: 0, zIndex: 100 }}>
         <div style={{ padding: "24px 20px 20px" }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em", marginBottom: 2 }}>Marketing Hub</div>
@@ -582,7 +663,6 @@ export default function MarketingHub() {
             </button>
           ))}
         </nav>
-        {/* User info */}
         <div style={{ padding: "16px 20px", borderTop: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <Avatar name={currentUser.name} size={34} />
@@ -594,7 +674,6 @@ export default function MarketingHub() {
           <button onClick={() => setCurrentUser(null)} style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "none", color: C.textMid, cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 600 }}>Cerrar sesión</button>
         </div>
       </div>
-      {/* Main content */}
       <div style={{ marginLeft: 220, flex: 1, padding: "32px 40px", maxWidth: "calc(100% - 220px)" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
           <div style={{ marginBottom: 28 }}>

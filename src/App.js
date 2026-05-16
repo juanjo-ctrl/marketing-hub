@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { getSheet, appendRow, updateRow, deleteRow, clientToRow, rowToClient, taskToRow, rowToTask, userToRow, rowToUser } from "./sheets";
-
 // ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
 const C = {
   bg: "#ffffff", surface: "#f8f8f8", surfaceAlt: "#f0f0f0",
@@ -253,7 +252,7 @@ function ClientForm({ initial, users, onSave, onClose }) {
       </div>
       <Field label="Responsable de gestión">
         <select style={inp} value={form.manager} onChange={e => set("manager", e.target.value)}>
-          <input style={inp} value={form.manager} onChange={e => set("manager", e.target.value)} placeholder="Nombre del gestor..." />
+          <option value="">— Sin asignar —</option>
           {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
         </select>
         <div style={{ fontSize: 11, color: C.textLight, marginTop: 5 }}>Solo este usuario verá este cliente (además del admin)</div>
@@ -265,7 +264,7 @@ function ClientForm({ initial, users, onSave, onClose }) {
       </Field>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
         <button onClick={onClose} style={btnS}>Cancelar</button>
-        <button onClick={() => form.name && onSave({...form, manager: form.manager || ''})} style={btnP}>Guardar cliente</button>
+        <button onClick={() => form.name && onSave(form)} style={btnP}>Guardar cliente</button>
       </div>
     </>
   );
@@ -328,10 +327,9 @@ export default function MarketingHub() {
 
   // Clientes ordenados alfabéticamente y filtrados por búsqueda
   const sortedClients = [...visibleClients]
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-    .filter(c => (c.name || '').toLowerCase().includes(clientSearch.toLowerCase()));
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
 
-  // ── USERS CRUD ────────────────────────────────────────────────────────────
   // ── USERS CRUD ────────────────────────────────────────────────────────────
   const addUser = async (form) => {
     const newUser = { ...form, id: uid() };
@@ -340,59 +338,23 @@ export default function MarketingHub() {
     closeModal();
   };
   const updateUser = async (id, form) => {
-    const updated = { ...users.find(u => u.id === id), ...form };
-    await updateRow("Usuarios", id, userToRow(updated));
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return;
+    const updated = { ...users[idx], ...form };
+    await updateRow(`Usuarios!A${idx + 2}:E${idx + 2}`, userToRow(updated));
     setUsers(u => u.map(x => x.id === id ? updated : x));
     closeModal();
   };
   const deleteUser = async (id) => {
-    await deleteRow("Usuarios", id);
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return;
+    await deleteRow (`Usuarios!A${idx + 2}:E${idx + 2}`);
     setUsers(u => u.filter(x => x.id !== id));
   };
 
   // ── TASKS CRUD ────────────────────────────────────────────────────────────
   const addTask = async (form) => {
     const newTask = { ...form, assigned: isAdmin ? form.assigned : currentUser.name, id: uid() };
-    await appendRow("Tareas", taskToRow(newTask));
-    setTasks(t => [...t, newTask]);
-    closeModal();
-  };
-  const updateTask = async (id, form) => {
-    const updated = { ...tasks.find(t => t.id === id), ...form };
-    await updateRow("Tareas", id, taskToRow(updated));
-    setTasks(t => t.map(tk => tk.id === id ? updated : tk));
-    closeModal();
-  };
-  const setTaskStatus = async (id, status) => {
-    const updated = { ...tasks.find(t => t.id === id), taskStatus: status };
-    await updateRow("Tareas", id, taskToRow(updated));
-    setTasks(t => t.map(tk => tk.id === id ? updated : tk));
-  };
-  const deleteTask = async (id) => {
-    await deleteRow("Tareas", id);
-    setTasks(t => t.filter(tk => tk.id !== id));
-  };
-
-  // ── CLIENTS CRUD ──────────────────────────────────────────────────────────
-  const addClient = async (form) => {
-    console.log("Guardando cliente:", form);
-    const newClient = { ...form, id: uid() };
-    await appendRow("Clientes", clientToRow(newClient));
-    setClients(c => [...c, newClient]);
-    closeModal();
-  };
-  const updateClient = async (id, form) => {
-    const updated = { ...clients.find(c => c.id === id), ...form };
-    await updateRow("Clientes", id, clientToRow(updated));
-    setClients(c => c.map(x => x.id === id ? updated : x));
-    closeModal();
-  };
-  const deleteClient = async (id) => {
-    await deleteRow("Clientes", id);
-    setClients(c => c.filter(x => x.id !== id));
-  };
-  // ── TASKS CRUD ────────────────────────────────────────────────────────────
-  
     await appendRow("Tareas", taskToRow(newTask));
     setTasks(t => [...t, newTask]);
     closeModal();
@@ -415,7 +377,7 @@ export default function MarketingHub() {
   const deleteTask = async (id) => {
     const idx = tasks.findIndex(t => t.id === id);
     if (idx === -1) return;
-    await clearRow(`Tareas!A${idx + 2}:I${idx + 2}`);
+    await deleteRow(`Tareas!A${idx + 2}:I${idx + 2}`);
     setTasks(t => t.filter(tk => tk.id !== id));
   };
 
@@ -437,7 +399,7 @@ export default function MarketingHub() {
   const deleteClient = async (id) => {
     const idx = clients.findIndex(c => c.id === id);
     if (idx === -1) return;
-    await clearRow(`Clientes!A${idx + 2}:J${idx + 2}`);
+    await deleteRow(`Clientes!A${idx + 2}:J${idx + 2}`);
     setClients(c => c.filter(x => x.id !== id));
   };
 

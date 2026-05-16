@@ -1,8 +1,3 @@
-Veo el problema. La función `clientToRow` no incluye el campo `manager`, y `rowToClient` tampoco lo lee. Por eso al editar no encuentra bien la fila y duplica.
-
-Selecciona todo en el bloc de notas y reemplaza con esto:
-
-```javascript
 const API = '/api/sheets';
 
 export async function getSheet(sheet) {
@@ -19,24 +14,24 @@ export async function appendRow(sheet, data) {
   });
 }
 
-export async function updateRow(range, data) {
+export async function updateRow(sheet, id, data) {
   await fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'update', range, data }),
+    body: JSON.stringify({ action: 'update', sheet, id, data }),
   });
 }
 
-export async function clearRow(range) {
+export async function deleteRow(sheet, id) {
   await fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'clear', range }),
+    body: JSON.stringify({ action: 'delete', sheet, id }),
   });
 }
 
 export function clientToRow(c) {
-  return [c.id, c.name, c.sector, c.status, c.since, c.clientType, c.management, c.notes, c.driveUrl, c.manager || ''];
+  return [c.id, c.name, c.sector, c.status, c.since, c.clientType, c.management || '', c.notes || '', c.driveUrl || '', c.manager || ''];
 }
 
 export function rowToClient(r) {
@@ -44,7 +39,7 @@ export function rowToClient(r) {
 }
 
 export function taskToRow(t) {
-  return [t.id, t.clientId, t.title, t.assigned, t.taskStatus, t.recurrent ? '1' : '0', t.recurrence, t.dueDate, t.notes];
+  return [t.id, t.clientId, t.title, t.assigned, t.taskStatus, t.recurrent ? '1' : '0', t.recurrence || '', t.dueDate || '', t.notes || ''];
 }
 
 export function rowToTask(r) {
@@ -58,6 +53,3 @@ export function userToRow(u) {
 export function rowToUser(r) {
   return { id: +r[0], username: r[1], password: r[2], name: r[3], role: r[4] };
 }
-```
-
-Guarda con **Ctrl + S**. Y también borra manualmente la fila duplicada en Google Sheets. Luego hacemos el push.

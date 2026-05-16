@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getSheet, appendRow, updateRow, clearRow, clientToRow, rowToClient, taskToRow, rowToTask, userToRow, rowToUser } from "./sheets";
+import { getSheet, appendRow, updateRow, deleteRow, clientToRow, rowToClient, taskToRow, rowToTask, userToRow, rowToUser } from "./sheets";
 
 // ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
 const C = {
@@ -332,6 +332,7 @@ export default function MarketingHub() {
     .filter(c => (c.name || '').toLowerCase().includes(clientSearch.toLowerCase()));
 
   // ── USERS CRUD ────────────────────────────────────────────────────────────
+  // ── USERS CRUD ────────────────────────────────────────────────────────────
   const addUser = async (form) => {
     const newUser = { ...form, id: uid() };
     await appendRow("Usuarios", userToRow(newUser));
@@ -339,20 +340,56 @@ export default function MarketingHub() {
     closeModal();
   };
   const updateUser = async (id, form) => {
-    const idx = users.findIndex(u => u.id === id);
-    if (idx === -1) return;
-    const updated = { ...users[idx], ...form };
-    await updateRow(`Usuarios!A${idx + 2}:E${idx + 2}`, userToRow(updated));
+    const updated = { ...users.find(u => u.id === id), ...form };
+    await updateRow("Usuarios", id, userToRow(updated));
     setUsers(u => u.map(x => x.id === id ? updated : x));
     closeModal();
   };
   const deleteUser = async (id) => {
-    const idx = users.findIndex(u => u.id === id);
-    if (idx === -1) return;
-    await clearRow(`Usuarios!A${idx + 2}:E${idx + 2}`);
+    await deleteRow("Usuarios", id);
     setUsers(u => u.filter(x => x.id !== id));
   };
 
+  // ── TASKS CRUD ────────────────────────────────────────────────────────────
+  const addTask = async (form) => {
+    const newTask = { ...form, assigned: isAdmin ? form.assigned : currentUser.name, id: uid() };
+    await appendRow("Tareas", taskToRow(newTask));
+    setTasks(t => [...t, newTask]);
+    closeModal();
+  };
+  const updateTask = async (id, form) => {
+    const updated = { ...tasks.find(t => t.id === id), ...form };
+    await updateRow("Tareas", id, taskToRow(updated));
+    setTasks(t => t.map(tk => tk.id === id ? updated : tk));
+    closeModal();
+  };
+  const setTaskStatus = async (id, status) => {
+    const updated = { ...tasks.find(t => t.id === id), taskStatus: status };
+    await updateRow("Tareas", id, taskToRow(updated));
+    setTasks(t => t.map(tk => tk.id === id ? updated : tk));
+  };
+  const deleteTask = async (id) => {
+    await deleteRow("Tareas", id);
+    setTasks(t => t.filter(tk => tk.id !== id));
+  };
+
+  // ── CLIENTS CRUD ──────────────────────────────────────────────────────────
+  const addClient = async (form) => {
+    const newClient = { ...form, id: uid() };
+    await appendRow("Clientes", clientToRow(newClient));
+    setClients(c => [...c, newClient]);
+    closeModal();
+  };
+  const updateClient = async (id, form) => {
+    const updated = { ...clients.find(c => c.id === id), ...form };
+    await updateRow("Clientes", id, clientToRow(updated));
+    setClients(c => c.map(x => x.id === id ? updated : x));
+    closeModal();
+  };
+  const deleteClient = async (id) => {
+    await deleteRow("Clientes", id);
+    setClients(c => c.filter(x => x.id !== id));
+  };
   // ── TASKS CRUD ────────────────────────────────────────────────────────────
   const addTask = async (form) => {
     const newTask = { ...form, assigned: isAdmin ? form.assigned : currentUser.name, id: uid() };

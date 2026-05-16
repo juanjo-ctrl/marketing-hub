@@ -375,6 +375,7 @@ export default function MarketingHub() {
 
   // ── CLIENTS CRUD ──────────────────────────────────────────────────────────
   const addClient = async (form) => {
+    console.log("Guardando cliente:", form);
     const newClient = { ...form, id: uid() };
     await appendRow("Clientes", clientToRow(newClient));
     setClients(c => [...c, newClient]);

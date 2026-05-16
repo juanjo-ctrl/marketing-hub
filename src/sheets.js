@@ -1,5 +1,4 @@
-const API = '/api/data';
-
+const API = 'https://script.google.com/macros/s/AKfycbyROVUbwA6qFKGWai3RVMDrBSE8E0Y_RoeAvSL_l_4-VM02k2Ua4vYHO19xiAtbK8pI/exec';
 export async function getSheet(sheet) {
   const res = await fetch(`${API}?sheet=${sheet}`);
   const data = await res.json();

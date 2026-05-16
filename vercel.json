@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/sheets", "destination": "/api/sheets.js" },
+    { "source": "/api/data", "destination": "/api/data.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

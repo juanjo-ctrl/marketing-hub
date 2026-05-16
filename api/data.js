@@ -1,4 +1,4 @@
-const API = '/api/data';
+const API = '/api/sheets';
 
 export async function getSheet(sheet) {
   const res = await fetch(`${API}?sheet=${sheet}`);

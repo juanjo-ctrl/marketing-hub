@@ -392,8 +392,7 @@ export default function MarketingHub() {
     setClients(c => c.filter(x => x.id !== id));
   };
   // ── TASKS CRUD ────────────────────────────────────────────────────────────
-  const addTask = async (form) => {
-    const newTask = { ...form, assigned: isAdmin ? form.assigned : currentUser.name, id: uid() };
+  
     await appendRow("Tareas", taskToRow(newTask));
     setTasks(t => [...t, newTask]);
     closeModal();

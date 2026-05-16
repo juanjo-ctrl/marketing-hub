@@ -1,7 +1,5 @@
 {
-  "functions": {
-    "api/sheets.js": {
-      "memory": 128
-    }
-  }
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

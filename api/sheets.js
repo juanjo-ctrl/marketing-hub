@@ -1,92 +1,55 @@
-Selecciona todo con **Edición → Seleccionar todo**, borra y pega esto:
+const API = '/api/sheets';
 
-```javascript
-const { google } = require('googleapis');
-
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    type: "service_account",
-    project_id: "marketing-hub-496210",
-    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    client_id: "114920605552035358827",
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
-
-const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
-
-async function findRowById(sheets, tab, id) {
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${tab}!A:A`,
-  });
-  const rows = result.data.values || [];
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] == id) return i + 1;
-  }
-  return -1;
+export async function getSheet(sheet) {
+  const res = await fetch(`${API}?sheet=${sheet}`);
+  const data = await res.json();
+  return data.values || [];
 }
 
-module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+export async function appendRow(sheet, data) {
+  await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'append', sheet, data }),
+  });
+}
 
-  const sheets = google.sheets({ version: 'v4', auth });
+export async function updateRow(sheet, id, data) {
+  await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update', sheet, id, data }),
+  });
+}
 
-  try {
-    if (req.method === 'GET') {
-      const tab = req.query.sheet;
-      const result = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${tab}!A:Z`,
-      });
-      return res.json({ values: result.data.values || [] });
-    }
+export async function deleteRow(sheet, id) {
+  await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete', sheet, id }),
+  });
+}
 
-    const { action, sheet, data, id } = req.body || {};
+export function clientToRow(c) {
+  return [c.id, c.name, c.sector, c.status, c.since, c.clientType, c.management || '', c.notes || '', c.driveUrl || '', c.manager || ''];
+}
 
-    if (action === 'append') {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${sheet}!A:Z`,
-        valueInputOption: 'RAW',
-        resource: { values: [data] },
-      });
-      return res.json({ ok: true });
-    }
+export function rowToClient(r) {
+  return { id: +r[0], name: r[1], sector: r[2], status: r[3], since: r[4], clientType: r[5], management: r[6] || '', notes: r[7] || '', driveUrl: r[8] || '', manager: r[9] || '' };
+}
 
-    if (action === 'update') {
-      const rowNum = await findRowById(sheets, sheet, id);
-      if (rowNum === -1) return res.status(404).json({ error: 'Row not found' });
-      const cols = String.fromCharCode(64 + data.length);
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${sheet}!A${rowNum}:${cols}${rowNum}`,
-        valueInputOption: 'RAW',
-        resource: { values: [data] },
-      });
-      return res.json({ ok: true });
-    }
+export function taskToRow(t) {
+  return [t.id, t.clientId, t.title, t.assigned, t.taskStatus, t.recurrent ? '1' : '0', t.recurrence || '', t.dueDate || '', t.notes || ''];
+}
 
-    if (action === 'delete') {
-      const rowNum = await findRowById(sheets, sheet, id);
-      if (rowNum === -1) return res.status(404).json({ error: 'Row not found' });
-      const cols = 'Z';
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${sheet}!A${rowNum}:${cols}${rowNum}`,
-      });
-      return res.json({ ok: true });
-    }
+export function rowToTask(r) {
+  return { id: +r[0], clientId: +r[1], title: r[2], assigned: r[3], taskStatus: r[4], recurrent: r[5] === '1', recurrence: r[6] || '', dueDate: r[7] || '', notes: r[8] || '' };
+}
 
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
-  }
-};
-```
+export function userToRow(u) {
+  return [u.id, u.username, u.password, u.name, u.role];
+}
 
-Guarda con **Ctrl + S** y dime cuando esté listo.
+export function rowToUser(r) {
+  return { id: +r[0], username: r[1], password: r[2], name: r[3], role: r[4] };
+}

@@ -328,8 +328,8 @@ export default function MarketingHub() {
 
   // Clientes ordenados alfabéticamente y filtrados por búsqueda
   const sortedClients = [...visibleClients]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .filter(c => (c.name || '').toLowerCase().includes(clientSearch.toLowerCase());
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .filter(c => (c.name || '').toLowerCase().includes(clientSearch.toLowerCase()));
 
   // ── USERS CRUD ────────────────────────────────────────────────────────────
   const addUser = async (form) => {

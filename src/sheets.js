@@ -1,3 +1,8 @@
+Veo el problema. La función `clientToRow` no incluye el campo `manager`, y `rowToClient` tampoco lo lee. Por eso al editar no encuentra bien la fila y duplica.
+
+Selecciona todo en el bloc de notas y reemplaza con esto:
+
+```javascript
 const API = '/api/sheets';
 
 export async function getSheet(sheet) {
@@ -31,11 +36,11 @@ export async function clearRow(range) {
 }
 
 export function clientToRow(c) {
-  return [c.id, c.name, c.sector, c.status, c.since, c.clientType, c.management, c.notes, c.driveUrl];
+  return [c.id, c.name, c.sector, c.status, c.since, c.clientType, c.management, c.notes, c.driveUrl, c.manager || ''];
 }
 
 export function rowToClient(r) {
-  return { id: +r[0], name: r[1], sector: r[2], status: r[3], since: r[4], clientType: r[5], management: r[6] || '', notes: r[7] || '', driveUrl: r[8] || '' };
+  return { id: +r[0], name: r[1], sector: r[2], status: r[3], since: r[4], clientType: r[5], management: r[6] || '', notes: r[7] || '', driveUrl: r[8] || '', manager: r[9] || '' };
 }
 
 export function taskToRow(t) {
@@ -53,3 +58,6 @@ export function userToRow(u) {
 export function rowToUser(r) {
   return { id: +r[0], username: r[1], password: r[2], name: r[3], role: r[4] };
 }
+```
+
+Guarda con **Ctrl + S**. Y también borra manualmente la fila duplicada en Google Sheets. Luego hacemos el push.

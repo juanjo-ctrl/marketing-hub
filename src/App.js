@@ -253,7 +253,7 @@ function ClientForm({ initial, users, onSave, onClose }) {
       </div>
       <Field label="Responsable de gestión">
         <select style={inp} value={form.manager} onChange={e => set("manager", e.target.value)}>
-          <option value="">— Sin asignar —</option>
+          <input style={inp} value={form.manager} onChange={e => set("manager", e.target.value)} placeholder="Nombre del gestor..." />
           {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
         </select>
         <div style={{ fontSize: 11, color: C.textLight, marginTop: 5 }}>Solo este usuario verá este cliente (además del admin)</div>

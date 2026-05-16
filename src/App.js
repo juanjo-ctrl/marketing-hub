@@ -265,7 +265,7 @@ function ClientForm({ initial, users, onSave, onClose }) {
       </Field>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
         <button onClick={onClose} style={btnS}>Cancelar</button>
-        <button onClick={() => form.name && onSave(form)} style={btnP}>Guardar cliente</button>
+        <button onClick={() => form.name && onSave({...form, manager: form.manager || ''})} style={btnP}>Guardar cliente</button>
       </div>
     </>
   );

@@ -23,7 +23,9 @@ const CLIENT_STATUS = {
 };
 
 const RECURRENCE_LABELS = {
-  lunes: "Cada lunes", viernes: "Cada viernes", mensual: "Mensual", quincenal: "Quincenal",
+  lunes: "Cada lunes", martes: "Cada martes", miercoles: "Cada miércoles",
+  jueves: "Cada jueves", viernes: "Cada viernes",
+  mensual: "Mensual", quincenal: "Quincenal",
 };
 
 const NAV_ITEMS = [
@@ -138,7 +140,7 @@ function LoginScreen({ users, onLogin }) {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ fontSize: isMobile ? 32 : 28, fontWeight: 800, color: C.text, letterSpacing: "-0.04em" }}>Marketing Hub</div>
+          <div style={{ fontSize: isMobile ? 32 : 28, fontWeight: 800, color: C.text, letterSpacing: "-0.04em" }}>b2bpro</div>
           <div style={{ fontSize: 12, color: C.textLight, marginTop: 6, letterSpacing: "0.08em", textTransform: "uppercase" }}>Acceso del equipo</div>
         </div>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28 }}>
@@ -146,15 +148,6 @@ function LoginScreen({ users, onLogin }) {
           <Field label="Contraseña"><input type="password" style={inp} value={password} onChange={e => { setPassword(e.target.value); setError(""); }} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handleLogin()} /></Field>
           {error && <div style={{ fontSize: 13, color: C.red, marginBottom: 14, fontWeight: 600 }}>⚠ {error}</div>}
           <button onClick={handleLogin} style={{ ...btnP, width: "100%", fontSize: 16, padding: "13px 0" }}>Entrar</button>
-        </div>
-        <div style={{ marginTop: 16, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Usuarios activos</div>
-          {users.map(u => (
-            <div key={u.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.textMid, marginBottom: 6 }}>
-              <span style={{ fontWeight: 700 }}>{u.name}</span>
-              <span style={{ color: C.textLight }}>{u.username} · {u.role === "admin" ? "Admin" : "Miembro"}</span>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -190,13 +183,14 @@ function UserForm({ initial, onSave, onClose }) {
 
 function TaskForm({ clients, users, initial, currentUser, onSave, onClose }) {
   const isAdmin = currentUser.role === "admin";
-  const [form, setForm] = useState(initial || { clientId: clients[0]?.id || "", title: "", assigned: currentUser.name, taskStatus: "sin_hacer", recurrent: false, recurrence: "lunes", dueDate: today(), notes: "" });
+  const visibleClients = isAdmin ? clients : clients.filter(c => c.manager === currentUser.name);
+  const [form, setForm] = useState(initial || { clientId: visibleClients[0]?.id || "", title: "", assigned: currentUser.name, taskStatus: "sin_hacer", recurrent: false, recurrence: "lunes", dueDate: today(), notes: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   return (
     <>
       <Field label="Cliente">
         <select style={inp} value={form.clientId} onChange={e => set("clientId", +e.target.value)}>
-          {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {visibleClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </Field>
       <Field label="Tarea"><input style={inp} value={form.title} onChange={e => set("title", e.target.value)} placeholder="Describe la tarea..." /></Field>
@@ -219,7 +213,11 @@ function TaskForm({ clients, users, initial, currentUser, onSave, onClose }) {
             <input type="checkbox" checked={form.recurrent} onChange={e => set("recurrent", e.target.checked)} style={{ accentColor: C.black, width: 16, height: 16 }} />
             Es recurrente
           </label>
-          {form.recurrent && <select style={{ ...inp, width: "auto" }} value={form.recurrence} onChange={e => set("recurrence", e.target.value)}>{Object.entries(RECURRENCE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>}
+          {form.recurrent && (
+            <select style={{ ...inp, width: "auto" }} value={form.recurrence} onChange={e => set("recurrence", e.target.value)}>
+              {Object.entries(RECURRENCE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          )}
         </div>
       </Field>
       <Field label="Notas"><textarea style={{ ...inp, minHeight: 72, resize: "vertical" }} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Contexto, instrucciones..." /></Field>
@@ -231,8 +229,8 @@ function TaskForm({ clients, users, initial, currentUser, onSave, onClose }) {
   );
 }
 
-function ClientForm({ initial, onSave, onClose }) {
-  const [form, setForm] = useState(initial || { name: "", sector: "", status: "activo", since: today().slice(0, 7), clientType: "B", management: "", notes: "", driveUrl: "" });
+function ClientForm({ initial, users, onSave, onClose }) {
+  const [form, setForm] = useState(initial || { name: "", sector: "", status: "activo", since: today().slice(0, 7), clientType: "B", management: "", notes: "", driveUrl: "", manager: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   return (
     <>
@@ -253,6 +251,13 @@ function ClientForm({ initial, onSave, onClose }) {
         </Field>
         <Field label="Mes de inicio"><input type="month" style={inp} value={form.since} onChange={e => set("since", e.target.value)} /></Field>
       </div>
+      <Field label="Responsable de gestión">
+        <select style={inp} value={form.manager} onChange={e => set("manager", e.target.value)}>
+          <option value="">— Sin asignar —</option>
+          {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+        </select>
+        <div style={{ fontSize: 11, color: C.textLight, marginTop: 5 }}>Solo este usuario verá este cliente (además del admin)</div>
+      </Field>
       <Field label="Gestión a realizar"><textarea style={{ ...inp, minHeight: 68, resize: "vertical" }} value={form.management} onChange={e => set("management", e.target.value)} placeholder="2 posts LinkedIn semanales + informe mensual..." /></Field>
       <Field label="Notas internas"><textarea style={{ ...inp, minHeight: 68, resize: "vertical" }} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Observaciones, preferencias del cliente..." /></Field>
       <Field label="Carpeta de Google Drive">
@@ -278,17 +283,15 @@ export default function MarketingHub() {
   const [filterClient, setFilterClient] = useState("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterPerson, setFilterPerson] = useState("todos");
+  const [clientSearch, setClientSearch] = useState("");
   const [modal, setModal] = useState(null);
 
-  // ── LOAD FROM SHEETS ──────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         const [uRows, cRows, tRows] = await Promise.all([
-          getSheet("Usuarios"),
-          getSheet("Clientes"),
-          getSheet("Tareas"),
+          getSheet("Usuarios"), getSheet("Clientes"), getSheet("Tareas"),
         ]);
         if (uRows.length > 1) setUsers(uRows.slice(1).map(rowToUser));
         if (cRows.length > 1) setClients(cRows.slice(1).map(rowToClient));
@@ -306,7 +309,7 @@ export default function MarketingHub() {
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 20 }}>Marketing Hub</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 20 }}>b2bpro</div>
         <Spinner />
         <div style={{ fontSize: 13, color: C.textLight, marginTop: 16 }}>Cargando datos...</div>
       </div>
@@ -317,6 +320,16 @@ export default function MarketingHub() {
 
   const isAdmin = currentUser.role === "admin";
   const closeModal = () => setModal(null);
+
+  // Clientes visibles según rol
+  const visibleClients = isAdmin
+    ? clients
+    : clients.filter(c => !c.manager || c.manager === currentUser.name);
+
+  // Clientes ordenados alfabéticamente y filtrados por búsqueda
+  const sortedClients = [...visibleClients]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
 
   // ── USERS CRUD ────────────────────────────────────────────────────────────
   const addUser = async (form) => {
@@ -380,14 +393,14 @@ export default function MarketingHub() {
     const idx = clients.findIndex(c => c.id === id);
     if (idx === -1) return;
     const updated = { ...clients[idx], ...form };
-    await updateRow(`Clientes!A${idx + 2}:I${idx + 2}`, clientToRow(updated));
+    await updateRow(`Clientes!A${idx + 2}:J${idx + 2}`, clientToRow(updated));
     setClients(c => c.map(x => x.id === id ? updated : x));
     closeModal();
   };
   const deleteClient = async (id) => {
     const idx = clients.findIndex(c => c.id === id);
     if (idx === -1) return;
-    await clearRow(`Clientes!A${idx + 2}:I${idx + 2}`);
+    await clearRow(`Clientes!A${idx + 2}:J${idx + 2}`);
     setClients(c => c.filter(x => x.id !== id));
   };
 
@@ -460,7 +473,7 @@ export default function MarketingHub() {
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
         {isAdmin && <select style={{ ...inp, width: "auto", fontSize: 13 }} value={filterPerson} onChange={e => setFilterPerson(e.target.value)}><option value="todos">Todo el equipo</option>{users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</select>}
-        <select style={{ ...inp, width: "auto", fontSize: 13 }} value={filterClient} onChange={e => setFilterClient(e.target.value)}><option value="todos">Todos los clientes</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <select style={{ ...inp, width: "auto", fontSize: 13 }} value={filterClient} onChange={e => setFilterClient(e.target.value)}><option value="todos">Todos los clientes</option>{visibleClients.sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         {(filterStatus !== "todos" || filterPerson !== "todos" || filterClient !== "todos") && <button onClick={() => { setFilterStatus("todos"); setFilterPerson("todos"); setFilterClient("todos"); }} style={{ ...btnS, padding: "8px 12px", fontSize: 12 }}>× Limpiar</button>}
         <button onClick={() => setModal("newTask")} style={{ ...btnP, marginLeft: "auto", whiteSpace: "nowrap", padding: isMobile ? "10px 16px" : "9px 18px" }}>+ Nueva tarea</button>
       </div>
@@ -473,9 +486,16 @@ export default function MarketingHub() {
   // ── CLIENTES ──────────────────────────────────────────────────────────────
   const ClientsView = () => (
     <div>
-      {isAdmin && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}><button onClick={() => setModal("newClient")} style={btnP}>+ Nuevo cliente</button></div>}
-      {clients.length === 0 && <div style={{ textAlign: "center", color: C.textLight, padding: 48 }}>No hay clientes todavía.</div>}
-      {clients.map(c => {
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
+        {/* Buscador */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: C.textLight }}>🔍</span>
+          <input style={{ ...inp, paddingLeft: 36 }} value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Buscar cliente..." />
+        </div>
+        {isAdmin && <button onClick={() => setModal("newClient")} style={btnP}>+ Nuevo</button>}
+      </div>
+      {sortedClients.length === 0 && <div style={{ textAlign: "center", color: C.textLight, padding: 48 }}>No hay clientes{clientSearch ? " con ese nombre" : " todavía"}.</div>}
+      {sortedClients.map(c => {
         const cs = CLIENT_STATUS[c.status] || CLIENT_STATUS.activo;
         const ct = visibleTasks.filter(t => t.clientId === c.id);
         const byS = { sin_hacer: 0, en_tramite: 0, hecho: 0 };
@@ -490,7 +510,10 @@ export default function MarketingHub() {
                   <span style={{ fontSize: 12, fontWeight: 700, color: cs.color }}>● {cs.label}</span>
                   {c.driveUrl && <a href={c.driveUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: C.textMid, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 99, padding: "2px 10px", textDecoration: "none" }}>📁 Drive</a>}
                 </div>
-                <div style={{ fontSize: 13, color: C.textMid, marginBottom: 8 }}>{c.sector} · desde {c.since}</div>
+                <div style={{ fontSize: 13, color: C.textMid, marginBottom: 8 }}>
+                  {c.sector} · desde {c.since}
+                  {c.manager && <span style={{ marginLeft: 8, fontSize: 12, color: C.textLight }}>· <strong style={{ color: C.textMid }}>Gestión:</strong> {c.manager}</span>}
+                </div>
                 {c.management && <div style={{ fontSize: 13, color: C.textMid, background: C.surface, borderRadius: 8, padding: "9px 12px", border: `1px solid ${C.border}`, lineHeight: 1.6, marginBottom: 8 }}><span style={{ fontSize: 10, fontWeight: 800, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 3 }}>Gestión contratada</span>{c.management}</div>}
                 {c.notes && <div style={{ fontSize: 13, color: C.textMid, background: C.yellowBg, borderRadius: 8, padding: "9px 12px", border: `1px solid ${C.yellowBorder}`, lineHeight: 1.6 }}><span style={{ fontSize: 10, fontWeight: 800, color: C.yellow, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 3 }}>Notas internas</span>{c.notes}</div>}
               </div>
@@ -601,11 +624,11 @@ export default function MarketingHub() {
   const renderModal = () => {
     if (!modal) return null;
     const wrap = (title, children) => <Modal title={title} onClose={closeModal}>{children}</Modal>;
-    if (modal === "newTask")   return wrap("Nueva tarea",   <TaskForm clients={clients} users={users} currentUser={currentUser} onSave={addTask} onClose={closeModal} />);
-    if (modal === "newClient") return wrap("Nuevo cliente", <ClientForm onSave={addClient} onClose={closeModal} />);
+    if (modal === "newTask")   return wrap("Nueva tarea",   <TaskForm clients={visibleClients} users={users} currentUser={currentUser} onSave={addTask} onClose={closeModal} />);
+    if (modal === "newClient") return wrap("Nuevo cliente", <ClientForm users={users} onSave={addClient} onClose={closeModal} />);
     if (modal === "newUser")   return wrap("Nuevo usuario", <UserForm onSave={addUser} onClose={closeModal} />);
-    if (modal.startsWith("editTask:"))   { const t = tasks.find(x => x.id === +modal.split(":")[1]);   return t ? wrap("Editar tarea",   <TaskForm clients={clients} users={users} initial={t} currentUser={currentUser} onSave={f => updateTask(t.id, f)} onClose={closeModal} />) : null; }
-    if (modal.startsWith("editClient:")) { const c = clients.find(x => x.id === +modal.split(":")[1]); return c ? wrap("Editar cliente", <ClientForm initial={c} onSave={f => updateClient(c.id, f)} onClose={closeModal} />) : null; }
+    if (modal.startsWith("editTask:"))   { const t = tasks.find(x => x.id === +modal.split(":")[1]);   return t ? wrap("Editar tarea",   <TaskForm clients={visibleClients} users={users} initial={t} currentUser={currentUser} onSave={f => updateTask(t.id, f)} onClose={closeModal} />) : null; }
+    if (modal.startsWith("editClient:")) { const c = clients.find(x => x.id === +modal.split(":")[1]); return c ? wrap("Editar cliente", <ClientForm users={users} initial={c} onSave={f => updateClient(c.id, f)} onClose={closeModal} />) : null; }
     if (modal.startsWith("editUser:"))   { const u = users.find(x => x.id === +modal.split(":")[1]);   return u ? wrap("Editar usuario", <UserForm initial={u} onSave={f => updateUser(u.id, f)} onClose={closeModal} />) : null; }
     return null;
   };
@@ -624,7 +647,7 @@ export default function MarketingHub() {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <style>{`* { box-sizing: border-box; } select option { background: #fff; color: #111; } button:focus { outline: none; }`}</style>
       <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em" }}>{navItems.find(n => n.id === view)?.label || "Marketing Hub"}</div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em" }}>{navItems.find(n => n.id === view)?.label || "b2bpro"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Avatar name={currentUser.name} size={30} />
           <button onClick={() => setCurrentUser(null)} style={{ background: "none", border: "none", color: C.textLight, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>Salir</button>
@@ -651,8 +674,8 @@ export default function MarketingHub() {
       <style>{`* { box-sizing: border-box; } select option { background: #fff; color: #111; } button:focus { outline: none; }`}</style>
       <div style={{ width: 220, background: C.bg, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0, left: 0, zIndex: 100 }}>
         <div style={{ padding: "24px 20px 20px" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em", marginBottom: 2 }}>Marketing Hub</div>
-          <div style={{ fontSize: 11, color: C.textLight, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{clients.filter(c => c.status === "activo").length} clientes activos</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-0.03em", marginBottom: 2 }}>b2bpro</div>
+          <div style={{ fontSize: 11, color: C.textLight, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{visibleClients.filter(c => c.status === "activo").length} clientes activos</div>
         </div>
         <nav style={{ flex: 1, padding: "8px 12px" }}>
           {navItems.map(n => (
